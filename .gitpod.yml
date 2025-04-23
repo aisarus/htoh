@@ -1,0 +1,13 @@
+# .gitpod.yml — конфигурация для автоматического окружения
+image: gitpod/workspace-python:latest
+
+# Устанавливаем зависимости и сразу запускаем Streamlit
+tasks:
+  - init: pip install -r requirements.txt
+    command: streamlit run app.py --server.port 3000
+
+# Проброс порта 3000 в браузер превью
+ports:
+  - port: 3000
+    onOpen: open-preview
+
