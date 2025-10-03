@@ -1,7 +1,12 @@
 import os
-import streamlit as st
-import openai
 import traceback
+
+import streamlit as st
+from openai import OpenAI
+
+
+st.set_page_config(page_title="EFM Translator Debug", layout="wide")
+
 
 # --- Diagnostics Sidebar ---
 st.sidebar.title("🛠️ Диагностика")
@@ -12,27 +17,36 @@ st.sidebar.write("API key loaded:", "✅" if api_key else "❌")
 
 # 2. Версия библиотеки
 try:
-    ver = openai.__version__
-except AttributeError:
-    ver = "unknown"
-st.sidebar.write("openai lib version:", ver)
+    from openai import __version__ as openai_version
+except (ImportError, AttributeError):
+    openai_version = "unknown"
+st.sidebar.write("openai lib version:", openai_version)
 
 # 3. Если ключ есть — пробуем получить список моделей
+client = None
 if api_key:
-    openai.api_key = api_key
     try:
-        models = openai.Model.list()
-        st.sidebar.write("Models available:", [m.id for m in models.data][:5], "…")
+        client = OpenAI(api_key=api_key)
+        models = client.models.list()
+        st.sidebar.write(
+            "Models available:",
+            [m.id for m in models.data][:5],
+            "…" if len(models.data) > 5 else "",
+        )
     except Exception as e:
         st.sidebar.write("Error listing models:", e)
+        client = None
 
 # Останавливаем, если нет ключа
 if not api_key:
     st.sidebar.error("Добавьте OPENAI_API_KEY в Secrets и перезапустите")
     st.stop()
 
+if client is None:
+    st.sidebar.error("Не удалось инициализировать OpenAI клиент")
+    st.stop()
+
 # --- Main UI ---
-st.set_page_config(page_title="EFM Translator Debug", layout="wide")
 st.title("🪲 EFM Translator — Debug-версия")
 
 col1, col2 = st.columns(2)
@@ -59,7 +73,7 @@ def analyze(msg: str) -> str:
     if not msg.strip():
         return ""
     try:
-        resp = openai.ChatCompletion.create(
+        resp = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Ты — анализатор по модели EFM. Строго по пунктам."},
